@@ -1,0 +1,71 @@
+﻿PAINEL DE ACOMPANHAMENTO DE OBRAS
+=================================
+
+COMO ABRIR NA TV (Windows)
+1. Descompacte a pasta "Painel_Obras" em um local fixo (ex.: C:\Engenharia\Painel_Obras).
+   Nao rode de dentro do .zip.
+2. De dois cliques em  Abrir_Painel.bat .
+   O painel abre em tela cheia (Edge ou Chrome, o que houver instalado).
+3. Se abrir no monitor errado, edite Abrir_Painel.bat e mude MONITOR_X:
+      1920  = TV a direita do monitor principal
+      -1920 = TV a esquerda
+      0     = monitor principal
+   Para sair da tela cheia: F11 (ou tecla F no painel). Para fechar: Alt+F4.
+
+COMO O PAINEL LE A PLANILHA
+- Ele le a planilha "ACOMPANHAMENTO DE OBRAS.xlsx" (aba "Cadastro de Obras") que esta
+  nesta mesma pasta. So le: nunca altera nem apaga nada do arquivo.
+- A cada 5 segundos o painel confere se o arquivo mudou e, se mudou, recalcula tudo
+  (indicadores, graficos, cronograma e tabela). Nao precisa apertar F5.
+- Para usar a planilha que voce ja mantem em outro lugar, abra config.js e troque
+      arquivo: "ACOMPANHAMENTO DE OBRAS.xlsx"
+  pelo caminho completo, com barras normais, por exemplo:
+      arquivo: "file:///C:/Engenharia/ACOMPANHAMENTO DE OBRAS.xlsx"
+  (ou "file:///Z:/Obras/ACOMPANHAMENTO DE OBRAS.xlsx" se for unidade de rede).
+
+COMO MANTER ATUALIZADO
+- Edite a planilha normalmente no Excel e SALVE (Ctrl+S). O painel so enxerga o que
+  foi salvo; alteracoes nao salvas nao aparecem. Pode deixar o Excel aberto.
+- Em ate ~5 segundos apos salvar, a TV atualiza. O canto superior direito mostra
+  "Planilha salva em ..." e "Conferida as ...".
+- Prazos (atrasada / vence em 7 dias / dias restantes) sao calculados pelo painel com a
+  data do computador, usando as mesmas regras das colunas H e I da planilha. Por isso a
+  virada de dia e os prazos ficam corretos mesmo que ninguem abra o Excel.
+- Se o arquivo ficar indisponivel por instantes (ex.: durante o salvamento ou queda da
+  rede), o painel continua mostrando a ultima leitura e avisa no canto superior direito.
+
+PARA CADASTRAR OBRAS
+- Digite nas linhas seguintes da aba "Cadastro de Obras" (Sede, Descricao, datas,
+  Fornecedor, Status). Status validos: A iniciar, Em andamento, Concluida, Suspensa.
+- Colunas "No da OC" e "Observacoes": aparecem na tabela do painel automaticamente
+  assim que alguma obra tiver esses campos preenchidos.
+- Se o cabecalho (nomes das colunas) for renomeado, o painel avisa o que nao encontrou.
+
+TECLAS E CONTROLES (os botoes somem sozinhos apos 6 s sem mexer o mouse)
+- F ............ tela cheia          - setas esquerda/direita ... trocar pagina da tabela
+- O ............ escolher outra planilha (ou botao "Planilha")
+- Filtros no topo: Status, Sede e Mes de termino previsto (valem para tudo na tela).
+- A tabela troca de pagina sozinha a cada 12 s quando ha mais obras que linhas.
+- Ajustes (linhas por pagina, tempo de troca, intervalo de leitura): config.js
+
+SE O PAINEL MOSTRAR "Selecione a planilha de obras"
+- O navegador nao conseguiu abrir o arquivo configurado. Confira o nome/caminho em
+  config.js, ou clique em "Selecionar planilha" (ou arraste o .xlsx para a janela).
+- Quando escolhida por esse botao no Edge/Chrome, o painel tambem acompanha as
+  gravacoes do arquivo; depois de reiniciar o computador, use "Reconectar".
+- Abrir o painel.html com dois cliques (sem o Abrir_Painel.bat) funciona, mas o Windows
+  bloqueia a leitura automatica; nesse caso use "Selecionar planilha".
+
+DICAS PARA A TV
+- Desative suspensao de tela/protetor: Configuracoes > Sistema > Energia > Tela e
+  suspensao > "Nunca".
+- Resolucao do monitor da TV: 1920 x 1080, escala 100%. Outras resolucoes funcionam
+  (o painel se ajusta), mas Full HD fica mais nitido.
+
+OBSERVACOES SOBRE OS DADOS ATUAIS
+- A planilha nao tem colunas de valor (R$), responsavel nem pendencias; por isso o painel
+  nao exibe valor total nem responsavel. "Observacoes" vira "pendencias" na tabela quando
+  preenchida.
+- Nomes de sede sao usados exatamente como digitados: por exemplo "JUNIOR EUSEBIO" e
+  "JÚNIOR CENTRAL" (com e sem acento em JUNIOR) aparecem como sedes diferentes. Se quiser
+  agrupar, padronize a escrita na planilha.

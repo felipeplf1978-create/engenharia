@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acompanhamento de Obras</title>
+<style>
+  :root{
+    --fundo:#0A1727; --painel:#102236; --painel2:#0D1D30; --linha:#1F3955; --linha2:#2B4A6C;
+    --texto:#EAF1F8; --suave:#9DB2C9; --fraco:#6F88A3;
+    --ok:#35C27A; --run:#4AA3FF; --warn:#F6BE3A; --bad:#FF5C61; --idle:#8EA3BD; --susp:#A99BC9;
+    --fonte:"Bahnschrift","Segoe UI Variable Display","Segoe UI","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:#050C16;color:var(--texto);font-family:var(--fonte)}
+  body.idle{cursor:none}
+  #stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center center;
+    background:
+      linear-gradient(rgba(120,170,220,.045) 1px,transparent 1px) 0 0/48px 48px,
+      linear-gradient(90deg,rgba(120,170,220,.045) 1px,transparent 1px) 0 0/48px 48px,
+      var(--fundo);
+    display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:100px 124px 400px 1fr;gap:16px;padding:28px;overflow:hidden}
+
+  /* ---------- cabeçalho ---------- */
+  header{display:grid;grid-template-columns:640px minmax(0,1fr) 470px;align-items:center;gap:20px}
+  .titulo h1{font-size:38px;line-height:1;font-weight:700;letter-spacing:.03em;white-space:nowrap}
+  .titulo p{margin-top:10px;font-size:20px;color:var(--suave);letter-spacing:.02em}
+  .controles{display:flex;gap:8px;min-width:0;justify-content:center;align-items:center;transition:opacity .6s}
+  body.idle .controles{opacity:0;pointer-events:none}
+  .controles label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--fraco)}
+  select,button{font:inherit;font-size:15px;color:var(--texto);background:#0C1B2E;border:1px solid var(--linha2);border-radius:6px;height:36px;padding:0 10px}
+  select{width:136px}
+  button{cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:7px;padding:0 13px}
+  button:hover,select:hover{border-color:var(--run)}
+  button:focus-visible,select:focus-visible{outline:2px solid var(--run);outline-offset:2px}
+  .controles button{align-self:flex-end}
+  .relogio{display:grid;grid-template-columns:auto 1fr;column-gap:20px;align-items:center;justify-content:end;text-align:right}
+  .hora{font-size:56px;line-height:1;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+  .data{font-size:18px;line-height:1.25;color:var(--texto)}
+  .fonte{margin-top:8px;font-size:14px;text-align:right;color:var(--suave);line-height:1.35}
+  .fonte .pt{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:var(--ok)}
+  .fonte.espera .pt{background:var(--warn)}
+  .fonte.erro .pt{background:var(--bad)}
+  .fonte .aviso-dados{color:var(--warn)}
+
+  /* ---------- indicadores ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:14px}
+  .kpi{position:relative;background:var(--painel);border:1px solid var(--linha);border-radius:10px;padding:12px 18px 10px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+  .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--cor)}
+  .kpi .rot{display:flex;align-items:center;justify-content:space-between;font-size:19px;color:var(--suave);font-weight:600}
+  .kpi .rot svg{width:26px;height:26px;stroke:var(--cor);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .kpi .num{font-size:66px;line-height:.95;font-weight:700;font-variant-numeric:tabular-nums;color:var(--texto)}
+  .kpi .leg{font-size:15px;color:var(--fraco)}
+  .kpi.destaque{background:color-mix(in srgb,var(--cor) 16%,var(--painel));border-color:color-mix(in srgb,var(--cor) 60%,var(--linha))}
+  .kpi.destaque .leg{color:var(--texto)}
+
+  /* ---------- painéis ---------- */
+  .painel{background:var(--painel);border:1px solid var(--linha);border-radius:10px;padding:14px 18px;min-height:0;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+  .painel h2{font-size:19px;font-weight:600;color:var(--texto);display:flex;align-items:center;justify-content:space-between;gap:14px;height:30px;flex:none;letter-spacing:.01em}
+  .meio{display:grid;grid-template-columns:1104px minmax(0,1fr);gap:16px;min-height:0}
+  .direita{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:1fr 1fr;gap:16px;min-height:0}
+  .legenda{display:flex;gap:16px;font-size:14px;color:var(--suave);font-weight:400}
+  .legenda i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  #gantt{flex:1;min-height:0}
+  #gantt svg{display:block;width:100%;height:100%}
+  .brow{display:grid;grid-template-columns:150px 1fr 30px;align-items:center;gap:10px;height:25px;font-size:16px}
+  .brow .blab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--texto)}
+  .brow .btrack{height:12px;background:#0B1A2B;border-radius:3px;overflow:hidden}
+  .brow .btrack i{display:block;height:100%;border-radius:0 4px 4px 0}
+  .brow .bnum{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  .vazio{color:var(--fraco);font-size:16px;padding-top:6px}
+
+  /* ---------- tabela ---------- */
+  .tabela .cab,.tabela .lin{display:grid;grid-template-columns:var(--cols);gap:14px;align-items:center;padding:0 14px}
+  .tabela .cab{height:30px;flex:none;font-size:14px;color:var(--fraco);border-bottom:1px solid var(--linha)}
+  .tabela .corpo{flex:1;min-height:0;display:flex;flex-direction:column}
+  .tabela .lin{height:36px;flex:none;font-size:18px;border-bottom:1px solid #162C45;position:relative}
+  .tabela .lin>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tabela .lin.atrasada{background:rgba(255,92,97,.12);box-shadow:inset 5px 0 0 var(--bad)}
+  .tabela .lin.vence{background:rgba(246,190,58,.11);box-shadow:inset 5px 0 0 var(--warn)}
+  .tabela .lin.concluida{color:var(--suave)}
+  .c-sede{font-weight:600}
+  .c-num{font-variant-numeric:tabular-nums}
+  .pill{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px;border-radius:13px;font-size:15px;font-weight:600;color:var(--cor);background:color-mix(in srgb,var(--cor) 16%,transparent);border:1px solid color-mix(in srgb,var(--cor) 45%,transparent)}
+  .pill svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .pager{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--suave);font-weight:400}
+  .pager .pts{display:flex;gap:6px}
+  .pager .pts i{width:22px;height:5px;border-radius:3px;background:var(--linha2)}
+  .pager .pts i.on{background:var(--run)}
+  .pager button{height:28px;padding:0 9px;font-size:14px}
+  body.idle .pager button{opacity:0;pointer-events:none}
+  .neg{color:var(--bad);font-weight:700}
+
+  /* ---------- tela de seleção / erro ---------- */
+  #aviso{position:absolute;inset:0;background:rgba(5,12,22,.88);display:none;align-items:center;justify-content:center;z-index:10}
+  #aviso.on{display:flex}
+  #aviso .cx{width:820px;background:var(--painel);border:1px solid var(--linha2);border-radius:12px;padding:34px 40px}
+  #aviso h3{font-size:30px;margin-bottom:12px}
+  #aviso p{font-size:18px;line-height:1.5;color:var(--suave);margin-bottom:10px}
+  #aviso .err{color:var(--warn);font-size:16px;margin:6px 0 16px;word-break:break-word}
+  #aviso .acoes{display:flex;gap:12px;margin-top:20px}
+  #aviso button{height:46px;font-size:18px;padding:0 20px}
+  #aviso button.prim{background:var(--run);color:#06121F;border-color:var(--run);font-weight:700}
+  #aviso.arrasta .cx{border-color:var(--run);background:#14304D}
+  #aviso kbd{font-family:inherit;background:#0C1B2E;border:1px solid var(--linha2);border-radius:4px;padding:1px 6px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <div class="titulo">
+      <h1>ACOMPANHAMENTO DE OBRAS</h1>
+      <p>Painel Gerencial de Engenharia</p>
+    </div>
+    <div class="controles" id="controles">
+      <label>Status<select id="fStatus"></select></label>
+      <label>Sede<select id="fSede"></select></label>
+      <label>Término previsto<select id="fPeriodo"></select></label>
+      <button id="bPlanilha" title="Escolher outra planilha (O)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h10l6 6v10H4z M14 4v6h6"/></svg>Planilha</button>
+      <button id="bTela" title="Tela cheia (F)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Tela cheia</button>
+    </div>
+    <div>
+      <div class="relogio"><div class="data" id="data"></div><div class="hora" id="hora"></div></div>
+      <div class="fonte espera" id="fonte"><span class="pt"></span>Aguardando a planilha…</div>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="meio">
+    <div class="painel">
+      <h2><span>Cronograma das obras</span><span class="legenda" id="legGantt"></span></h2>
+      <div id="gantt"></div>
+    </div>
+    <div class="direita">
+      <div class="painel"><h2>Obras por status</h2><div id="pStatus"></div></div>
+      <div class="painel"><h2>Situação do prazo</h2><div id="pPrazo"></div></div>
+      <div class="painel"><h2>Por fornecedor executor</h2><div id="pForn"></div></div>
+      <div class="painel"><h2>Por sede</h2><div id="pSede"></div></div>
+    </div>
+  </section>
+
+  <section class="painel tabela">
+    <h2><span><span id="tTitulo">Obras para acompanhamento</span> <small style="font-size:15px;font-weight:400;color:var(--fraco);margin-left:10px">atrasadas e prazos próximos primeiro</small></span>
+      <span class="pager" id="pager"></span></h2>
+    <div class="cab" id="tCab"></div>
+    <div class="corpo" id="tCorpo"></div>
+  </section>
+
+  <div id="aviso">
+    <div class="cx">
+      <h3 id="avTitulo">Selecione a planilha de obras</h3>
+      <p id="avTexto">O painel não conseguiu abrir a planilha automaticamente. Escolha o arquivo <b>ACOMPANHAMENTO DE OBRAS.xlsx</b> ou arraste-o para esta janela. O arquivo original não é alterado.</p>
+      <p class="err" id="avErro"></p>
+      <div class="acoes">
+        <button class="prim" id="avEscolher">Selecionar planilha</button>
+        <button id="avReconectar" style="display:none">Reconectar à planilha anterior</button>
+      </div>
+    </div>
+  </div>
+</div>
+<input type="file" id="inputArquivo" accept=".xlsx,.xlsm" style="display:none">
+
+<script src="config.js"></script>
+<script src="leitor-xlsx.js"></script>
+<script>
+'use strict';
+/* ====================================================================
+ * Painel de Acompanhamento de Obras
+ * Lê a aba "Cadastro de Obras" e calcula tudo no navegador.
+ * A planilha nunca é alterada: o painel só lê.
+ * ==================================================================== */
+const CFG = Object.assign({
+  arquivo: 'ACOMPANHAMENTO DE OBRAS.xlsx', aba: 'Cadastro de Obras',
+  leituraSegundos: 5, diasAlerta: 7, linhasPorPagina: 7, trocaPaginaSegundos: 12
+}, window.PAINEL_CONFIG || {});
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+/* ---------- estado ---------- */
+const S = {
+  registros: [], avisos: [], hoje: 0, filtro: {status: '', sede: '', periodo: ''},
+  pagina: 0, modo: null, url: null, handle: null, sig: null, chave: null,
+  modificadoEm: null, leituraEm: null, erros: 0, ultimoErro: ''
+};
+
+/* ---------- datas (número serial do Excel) ---------- */
+const EPOCA = Date.UTC(1899, 11, 30);
+const serialHoje = () => { const d = new Date(); return Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - EPOCA) / 864e5); };
+const serialParaUTC = n => new Date(EPOCA + n * 864e5);
+const p2 = n => String(n).padStart(2, '0');
+const fmtData = n => { if (n == null) return '—'; const d = serialParaUTC(n); return p2(d.getUTCDate()) + '/' + p2(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear(); };
+const fmtCurta = n => { const d = serialParaUTC(n); return p2(d.getUTCDate()) + '/' + p2(d.getUTCMonth() + 1); };
+const fmtMes = n => { const d = serialParaUTC(n); return MES[d.getUTCMonth()] + '/' + d.getUTCFullYear(); };
+const chaveMes = n => { const d = serialParaUTC(n); return d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1); };
+function paraSerial(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return Math.floor(v);
+  if (v instanceof Date) return Math.round((Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()) - EPOCA) / 864e5);
+  const t = String(v).trim();
+  let m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/.exec(t);
+  if (m) { let a = +m[3]; if (a < 100) a += 2000; return Math.round((Date.UTC(a, +m[2] - 1, +m[1]) - EPOCA) / 864e5); }
+  m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (m) return Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - EPOCA) / 864e5);
+  return null;
+}
+
+/* ---------- leitura da aba ---------- */
+const COLUNAS = {
+  sede: ['sede'], desc: ['descricao da obra', 'descricao'], oc: ['n da oc', 'no da oc', 'numero da oc', 'oc'],
+  inicio: ['data de inicio', 'inicio'], termino: ['previsao de termino', 'termino previsto', 'termino'],
+  forn: ['fornecedor executor', 'fornecedor'], status: ['status'], obs: ['observacoes', 'observacao']
+};
+function interpretar(linhas) {
+  let hi = -1;
+  for (let i = 0; i < Math.min(linhas.length, 15); i++) if ((linhas[i] || []).some(c => norm(c) === 'sede')) { hi = i; break; }
+  if (hi < 0) throw new Error('Cabeçalho não encontrado: a aba precisa ter a coluna "Sede".');
+  const cab = linhas[hi].map(norm), col = {};
+  for (const [k, nomes] of Object.entries(COLUNAS)) {
+    for (const n of nomes) { const i = cab.indexOf(n); if (i >= 0) { col[k] = i; break; } }
+  }
+  if (col.desc == null) throw new Error('Coluna "Descrição da obra" não encontrada.');
+  if (col.status == null) throw new Error('Coluna "Status" não encontrada.');
+  const regs = [], avisos = [], vistos = new Map();
+  for (let i = hi + 1; i < linhas.length; i++) {
+    const L = linhas[i] || [], g = k => col[k] == null ? null : L[col[k]];
+    const sede = String(g('sede') ?? '').trim(), desc = String(g('desc') ?? '').trim();
+    if (!sede && !desc) continue;               // ignora linhas vazias (fórmulas pré-preenchidas)
+    const r = {
+      linha: i + 1, sede, desc,
+      oc: String(g('oc') ?? '').trim(), forn: String(g('forn') ?? '').trim(),
+      inicio: paraSerial(g('inicio')), termino: paraSerial(g('termino')),
+      status: String(g('status') ?? '').trim(), obs: String(g('obs') ?? '').trim()
+    };
+    const chave = norm(sede) + '|' + norm(desc);
+    if (vistos.has(chave)) avisos.push('Linhas ' + vistos.get(chave) + ' e ' + r.linha + ': obra repetida (' + sede + ' / ' + desc + ').');
+    else vistos.set(chave, r.linha);
+    if (!r.status) avisos.push('Linha ' + r.linha + ': status em branco.');
+    if (r.inicio != null && r.termino != null && r.termino < r.inicio) avisos.push('Linha ' + r.linha + ': término anterior ao início.');
+    regs.push(r);
+  }
+  return { regs, avisos };
+}
+
+/* ---------- regras (as mesmas das colunas H e I da planilha) ---------- */
+const STATUS_CONHECIDOS = { 'a iniciar': 'A iniciar', 'em andamento': 'Em andamento', 'concluida': 'Concluída', 'suspensa': 'Suspensa' };
+function classificar(r, hoje) {
+  r.st = STATUS_CONHECIDOS[norm(r.status)] || (r.status || 'Sem status');
+  if (r.st === 'Concluída') r.alerta = 'Concluída';
+  else if (r.st === 'Suspensa') r.alerta = 'Suspensa';
+  else if (r.termino == null) r.alerta = 'Sem previsão';
+  else if (r.termino < hoje) r.alerta = 'Atrasada';
+  else if (r.termino <= hoje + CFG.diasAlerta) r.alerta = 'Vence em até ' + CFG.diasAlerta + ' dias';
+  else r.alerta = r.st === 'A iniciar' ? 'A iniciar no prazo' : 'No prazo';
+  r.dias = (r.st === 'Concluída' || r.termino == null) ? null : r.termino - hoje;
+  const ordem = { 'Atrasada': 0, 'Sem previsão': 2, 'Suspensa': 5, 'Concluída': 6 };
+  r.prio = r.alerta in ordem ? ordem[r.alerta] : (r.alerta.startsWith('Vence') ? 1 : (r.st === 'Em andamento' ? 3 : (r.st === 'A iniciar' ? 4 : 7)));
+}
+
+/* ---------- aparência por situação ---------- */
+const COR_ST = { 'A iniciar': '--idle', 'Em andamento': '--run', 'Concluída': '--ok', 'Suspensa': '--susp' };
+const corStatus = st => 'var(' + (COR_ST[st] || '--idle') + ')';
+function corAlerta(a) {
+  if (a === 'Atrasada') return 'var(--bad)';
+  if (a.startsWith('Vence') || a === 'Sem previsão') return 'var(--warn)';
+  if (a === 'Concluída') return 'var(--ok)';
+  if (a === 'Suspensa') return 'var(--susp)';
+  if (a === 'A iniciar no prazo') return 'var(--idle)';
+  return 'var(--run)';
+}
+const IC = {
+  total: '<path d="M4 20V9l8-5 8 5v11M9 20v-6h6v6"/>',
+  run: '<path d="M8 5v14l11-7z"/>',
+  wait: '<path d="M7 4h10M7 20h10M8 4v3l4 5-4 5v3M16 4v3l-4 5 4 5v3"/>',
+  ok: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+  pause: '<path d="M8 5v14M16 5v14"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  alert: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.3"/>',
+  cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>'
+};
+const icone = k => '<svg viewBox="0 0 24 24" aria-hidden="true">' + IC[k] + '</svg>';
+const icAlerta = a => a === 'Atrasada' ? 'alert' : a.startsWith('Vence') ? 'clock' : a === 'Concluída' ? 'ok' : a === 'Suspensa' ? 'pause' : a === 'Sem previsão' ? 'cal' : a === 'A iniciar no prazo' ? 'wait' : 'run';
+const icStatus = s => s === 'Concluída' ? 'ok' : s === 'Suspensa' ? 'pause' : s === 'A iniciar' ? 'wait' : 'run';
+const pill = (txt, cor, ic) => '<span class="pill" style="--cor:' + cor + '">' + icone(ic) + esc(txt) + '</span>';
+
+/* ---------- filtros ---------- */
+function filtrados() {
+  const f = S.filtro;
+  return S.registros.filter(r =>
+    (!f.status || r.st === f.status) && (!f.sede || r.sede === f.sede) &&
+    (!f.periodo || (f.periodo === 'sem' ? r.termino == null : (r.termino != null && chaveMes(r.termino) === f.periodo))));
+}
+function montarFiltros() {
+  const opc = (sel, itens, atual) => {
+    sel.innerHTML = itens.map(([v, t]) => '<option value="' + esc(v) + '">' + esc(t) + '</option>').join('');
+    sel.value = itens.some(i => i[0] === atual) ? atual : '';
+    return sel.value;
+  };
+  const R = S.registros;
+  const sts = [...new Set(R.map(r => r.st))].sort((a, b) => (Object.keys(COR_ST).indexOf(a) + 9) % 9 - (Object.keys(COR_ST).indexOf(b) + 9) % 9);
+  S.filtro.status = opc($('fStatus'), [['', 'Todos']].concat(sts.map(s => [s, s])), S.filtro.status);
+  const sedes = [...new Set(R.map(r => r.sede).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  S.filtro.sede = opc($('fSede'), [['', 'Todas']].concat(sedes.map(s => [s, s])), S.filtro.sede);
+  const meses = [...new Set(R.filter(r => r.termino != null).map(r => chaveMes(r.termino)))].sort();
+  const itens = [['', 'Todos']].concat(meses.map(m => { const [a, mm] = m.split('-'); return [m, MES[+mm - 1] + '/' + a]; }));
+  if (R.some(r => r.termino == null)) itens.push(['sem', 'Sem previsão']);
+  S.filtro.periodo = opc($('fPeriodo'), itens, S.filtro.periodo);
+}
+
+/* ---------- renderização ---------- */
+function renderKpis(V) {
+  const n = V.length, c = f => V.filter(f).length;
+  const pc = x => n ? Math.round(x * 100 / n) + '% do total' : '—';
+  const venc = c(r => r.alerta.startsWith('Vence')), atr = c(r => r.alerta === 'Atrasada');
+  const cartoes = [
+    { rot: 'Total de obras', n: n, leg: 'cadastradas na planilha', cor: '--idle', ic: 'total' },
+    { rot: 'Em andamento', n: c(r => r.st === 'Em andamento'), leg: pc(c(r => r.st === 'Em andamento')), cor: '--run', ic: 'run' },
+    { rot: 'A iniciar', n: c(r => r.st === 'A iniciar'), leg: pc(c(r => r.st === 'A iniciar')), cor: '--idle', ic: 'wait' },
+    { rot: 'Concluídas', n: c(r => r.st === 'Concluída'), leg: pc(c(r => r.st === 'Concluída')), cor: '--ok', ic: 'ok' },
+    { rot: 'Suspensas', n: c(r => r.st === 'Suspensa'), leg: pc(c(r => r.st === 'Suspensa')), cor: '--susp', ic: 'pause' },
+    { rot: 'Vencem em ' + CFG.diasAlerta + ' dias', n: venc, leg: venc ? 'prazo de entrega próximo' : 'nenhuma obra', cor: '--warn', ic: 'clock', dest: venc > 0 },
+    { rot: 'Atrasadas', n: atr, leg: atr ? 'prazo de término vencido' : 'nenhuma obra', cor: '--bad', ic: 'alert', dest: atr > 0 }
+  ];
+  $('kpis').innerHTML = cartoes.map(k =>
+    '<div class="kpi' + (k.dest ? ' destaque' : '') + '" style="--cor:var(' + k.cor + ')"><div class="rot"><span>' + esc(k.rot) + '</span>' + icone(k.ic).replace('<svg ', '<svg ') + '</div><div class="num">' + k.n + '</div><div class="leg">' + esc(k.leg) + '</div></div>'
+  ).join('');
+}
+
+function barras(el, itens, max, corFixa) {
+  if (!itens.length) { el.innerHTML = '<div class="vazio">Sem dados para este filtro.</div>'; return; }
+  const m = Math.max(1, ...itens.map(i => i.n));
+  itens = itens.slice(0, max);
+  const alt = Math.min(25, Math.floor(134 / itens.length));
+  el.innerHTML = itens.map(i =>
+    '<div class="brow" style="height:' + alt + 'px" title="' + esc(i.rot) + ': ' + i.n + '"><span class="blab">' + esc(i.rot) + '</span><span class="btrack"><i style="width:' + (i.n * 100 / m) + '%;background:' + (i.cor || corFixa) + '"></i></span><span class="bnum">' + i.n + '</span></div>'
+  ).join('');
+}
+function contar(V, chave) {
+  const m = new Map();
+  V.forEach(r => { const k = chave(r) || '(não informado)'; m.set(k, (m.get(k) || 0) + 1); });
+  return [...m].map(([rot, n]) => ({ rot, n })).sort((a, b) => b.n - a.n || a.rot.localeCompare(b.rot, 'pt-BR'));
+}
+function renderGraficos(V) {
+  // status: sempre mostra os 4 status da planilha (mesmo zerados) + outros que existirem
+  const base = Object.keys(COR_ST).map(s => ({ rot: s, n: V.filter(r => r.st === s).length, cor: corStatus(s) }));
+  contar(V.filter(r => !(r.st in COR_ST)), r => r.st).forEach(o => base.push({ rot: o.rot, n: o.n, cor: 'var(--idle)' }));
+  barras($('pStatus'), base, 8);
+  const ordemA = ['Atrasada', 'Vence', 'Sem previsão', 'No prazo', 'A iniciar no prazo', 'Suspensa', 'Concluída'];
+  const pr = contar(V, r => r.alerta).map(o => ({ rot: o.rot, n: o.n, cor: corAlerta(o.rot) }))
+    .sort((a, b) => ordemA.findIndex(x => a.rot.startsWith(x)) - ordemA.findIndex(x => b.rot.startsWith(x)));
+  barras($('pPrazo'), pr.map(o => Object.assign(o, { rot: o.rot.replace('em até', 'em') })), 8);
+  const topN = (lista, rotDemais) => {   // até 5 linhas: se houver mais, 4 maiores + "Demais"
+    if (lista.length <= 5) return lista;
+    const resto = lista.slice(4);
+    return lista.slice(0, 4).concat([{ rot: rotDemais(resto.length), n: resto.reduce((s, o) => s + o.n, 0) }]);
+  };
+  barras($('pForn'), topN(contar(V, r => r.forn), k => 'Demais (' + k + ')'), 5, '#5E9BD6');
+  barras($('pSede'), topN(contar(V, r => r.sede), k => 'Demais (' + k + ' sedes)'), 5, '#5E9BD6');
+}
+
+function renderGantt(V) {
+  const el = $('gantt');
+  const MAXL = 12;
+  let lista = V.slice().sort((a, b) => (a.inicio ?? a.termino ?? 1e9) - (b.inicio ?? b.termino ?? 1e9) || a.linha - b.linha);
+  let omitidas = 0;
+  if (lista.length > MAXL) {   // prioriza o que ainda não foi concluído
+    const abertas = lista.filter(r => r.st !== 'Concluída'), fechadas = lista.filter(r => r.st === 'Concluída');
+    lista = abertas.concat(fechadas).slice(0, MAXL);
+    omitidas = V.length - lista.length;
+    lista.sort((a, b) => (a.inicio ?? a.termino ?? 1e9) - (b.inicio ?? b.termino ?? 1e9));
+  }
+  $('legGantt').innerHTML = [['--run', 'Em andamento'], ['--idle', 'A iniciar'], ['--ok', 'Concluída'], ['--warn', 'Vence em ' + CFG.diasAlerta + ' dias'], ['--bad', 'Atrasada']]
+    .concat(V.some(r => r.st === 'Suspensa') ? [['--susp', 'Suspensa']] : [])
+    .map(([c, t]) => '<span><i style="background:var(' + c + ')"></i>' + esc(t) + '</span>').join('');
+  const datas = lista.flatMap(r => [r.inicio, r.termino]).filter(x => x != null);
+  if (!datas.length) { el.innerHTML = '<div class="vazio">Sem datas para montar o cronograma.</div>'; return; }
+  const W = 1068, H = el.clientHeight || 348, xs = 392, xe = 1018, topo = 28, base = 28;
+  const dmin = Math.min(...datas, S.hoje) - 2, dmax = Math.max(...datas, S.hoje) + 2;
+  const X = d => xs + (d - dmin) * (xe - xs) / (dmax - dmin);
+  const n = lista.length, rh = Math.min(27, (H - topo - base - (omitidas ? 16 : 0)) / n), bh = Math.min(15, rh - 9);
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMinYMin meet" role="img" aria-label="Cronograma das obras"><defs><clipPath id="recLab"><rect x="0" y="0" width="382" height="' + H + '"/></clipPath></defs>';
+  // meses
+  const d0 = serialParaUTC(dmin);
+  for (let a = d0.getUTCFullYear(), m = d0.getUTCMonth() + 1; ; m++) {
+    if (m > 11) { m = 0; a++; }
+    const ser = Math.round((Date.UTC(a, m, 1) - EPOCA) / 864e5);
+    if (ser > dmax) break;
+    const x = X(ser);
+    s += '<line x1="' + x + '" x2="' + x + '" y1="' + (topo - 4) + '" y2="' + H + '" stroke="#26435F" stroke-width="1"/>' +
+      (x < W - 50 ? '<text x="' + (x + 6) + '" y="16" fill="#9DB2C9" font-size="14">' + MES[m] + (m === 0 ? '/' + a : '') + '</text>' : '');
+  }
+  // linhas e barras
+  lista.forEach((r, i) => {
+    const y = topo + i * rh, yc = y + rh / 2, cor = r.alerta === 'Atrasada' ? 'var(--bad)' : r.alerta.startsWith('Vence') ? 'var(--warn)' : r.st === 'Concluída' ? 'var(--ok)' : r.st === 'Suspensa' ? 'var(--susp)' : r.st === 'A iniciar' ? 'var(--idle)' : 'var(--run)';
+    if (i % 2 === 0) s += '<rect x="0" y="' + y + '" width="' + W + '" height="' + rh + '" fill="#fff" opacity=".025"/>';
+    let rot = r.sede + '  ' + r.desc; const corte = 40;
+    const sedeT = r.sede.length > 22 ? r.sede.slice(0, 21) + '…' : r.sede;
+    const descT = (sedeT + '  ' + r.desc).length > corte ? r.desc.slice(0, Math.max(0, corte - sedeT.length - 3)) + '…' : r.desc;
+    s += '<text x="6" y="' + (yc + 5) + '" font-size="15" fill="#EAF1F8" clip-path="url(#recLab)"><tspan font-weight="700">' + esc(sedeT) + '</tspan><tspan fill="#9DB2C9" dx="8">' + esc(descT) + '</tspan></text>';
+    const tip = r.sede + ' — ' + r.desc + '\nStatus: ' + r.st + ' | ' + r.alerta + '\nInício: ' + fmtData(r.inicio) + ' | Término: ' + fmtData(r.termino) + (r.forn ? '\nFornecedor: ' + r.forn : '');
+    if (r.inicio != null && r.termino != null) {
+      const x1 = X(r.inicio), x2 = Math.max(X(r.termino), x1 + 4);
+      const vazada = r.st === 'A iniciar';
+      s += '<g><title>' + esc(tip) + '</title><rect x="' + x1 + '" y="' + (yc - bh / 2) + '" width="' + (x2 - x1) + '" height="' + bh + '" rx="3" fill="' + cor + '" fill-opacity="' + (vazada ? .28 : .95) + '" stroke="' + cor + '" stroke-width="' + (vazada ? 1.6 : 0) + '"/>' +
+        '<text x="' + (x2 + 6) + '" y="' + (yc + 5) + '" font-size="13" fill="#9DB2C9">' + fmtCurta(r.termino) + '</text></g>';
+    } else {
+      const d = r.termino ?? r.inicio;
+      s += '<g><title>' + esc(tip) + '</title><path d="M' + X(d) + ' ' + (yc - 7) + 'l7 7-7 7-7-7z" fill="' + cor + '"/><text x="' + (X(d) + 12) + '" y="' + (yc + 5) + '" font-size="13" fill="#9DB2C9">' + (r.termino == null ? 'sem previsão de término' : fmtCurta(d)) + '</text></g>';
+    }
+  });
+  // hoje
+  const xh = X(S.hoje);
+  s += '<line x1="' + xh + '" x2="' + xh + '" y1="' + (topo - 2) + '" y2="' + (topo + n * rh + 4) + '" stroke="#FFFFFF" stroke-width="2" stroke-dasharray="5 4" opacity=".85"/>' +
+    '<g><rect x="' + (xh - 25) + '" y="' + (topo + n * rh + 4) + '" width="50" height="19" rx="9.5" fill="#fff"/><text x="' + xh + '" y="' + (topo + n * rh + 18) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#0A1727">Hoje</text></g>';
+  if (omitidas) s += '<text x="6" y="' + (H - 4) + '" font-size="13" fill="#F6BE3A">+ ' + omitidas + (omitidas === 1 ? ' obra fora do cronograma' : ' obras fora do cronograma') + ' (veja a tabela)</text>';
+  el.innerHTML = s + '</svg>';
+}
+
+function renderTabela(V) {
+  const dados = V.slice().sort((a, b) => a.prio - b.prio || (a.termino ?? 1e9) - (b.termino ?? 1e9) || a.linha - b.linha);
+  const porPag = Math.max(1, CFG.linhasPorPagina | 0), paginas = Math.max(1, Math.ceil(dados.length / porPag));
+  if (S.pagina >= paginas) S.pagina = 0;
+  const temOC = V.some(r => r.oc), temObs = V.some(r => r.obs);
+  const cols = [['Sede', '210px'], ['Obra', 'minmax(0,1fr)'], ['Fornecedor', '190px']];
+  if (temOC) cols.push(['Nº da OC', '110px']);
+  cols.push(['Início', '112px'], ['Término', '112px'], ['Prazo', '116px'], ['Status', '158px'], ['Alerta', '212px']);
+  if (temObs) cols.splice(2, 0, ['Observações', 'minmax(0,.8fr)']);
+  $('tCab').style.setProperty('--cols', cols.map(c => c[1]).join(' '));
+  $('tCab').innerHTML = cols.map(c => '<span>' + c[0] + '</span>').join('');
+  const fatia = dados.slice(S.pagina * porPag, (S.pagina + 1) * porPag);
+  const diasTxt = r => r.dias == null ? '—' : r.dias < 0 ? '<span class="neg">' + (-r.dias) + (r.dias === -1 ? ' dia de atraso' : ' d de atraso') + '</span>' : r.dias === 0 ? 'hoje' : r.dias + (r.dias === 1 ? ' dia' : ' dias');
+  $('tCorpo').innerHTML = fatia.length ? fatia.map(r => {
+    const cls = r.alerta === 'Atrasada' ? 'atrasada' : r.alerta.startsWith('Vence') ? 'vence' : r.st === 'Concluída' ? 'concluida' : '';
+    const cel = { 'Sede': '<span class="c-sede" title="' + esc(r.sede) + '">' + esc(r.sede) + '</span>', 'Obra': '<span title="' + esc(r.desc) + '">' + esc(r.desc) + '</span>',
+      'Fornecedor': '<span title="' + esc(r.forn) + '">' + esc(r.forn || '—') + '</span>', 'Observações': '<span title="' + esc(r.obs) + '">' + esc(r.obs || '—') + '</span>',
+      'Nº da OC': '<span class="c-num">' + esc(r.oc || '—') + '</span>', 'Início': '<span class="c-num">' + fmtData(r.inicio) + '</span>', 'Término': '<span class="c-num">' + fmtData(r.termino) + '</span>',
+      'Prazo': '<span class="c-num">' + diasTxt(r) + '</span>', 'Status': '<span>' + pill(r.st, corStatus(r.st), icStatus(r.st)) + '</span>',
+      'Alerta': '<span>' + pill(r.alerta, corAlerta(r.alerta), icAlerta(r.alerta)) + '</span>' };
+    return '<div class="lin ' + cls + '" style="--cols:' + cols.map(c => c[1]).join(' ') + '">' + cols.map(c => cel[c[0]]).join('') + '</div>';
+  }).join('') : '<div class="vazio" style="padding:14px">Nenhuma obra para o filtro selecionado.</div>';
+  $('tTitulo').textContent = 'Obras para acompanhamento';
+  $('pager').innerHTML = (paginas > 1 ? '<button id="pAnt" title="Página anterior (←)">‹</button><span class="pts">' + Array.from({ length: paginas }, (_, i) => '<i class="' + (i === S.pagina ? 'on' : '') + '"></i>').join('') + '</span><button id="pProx" title="Próxima página (→)">›</button>' : '') +
+    '<span>' + (dados.length ? 'Página ' + (S.pagina + 1) + ' de ' + paginas + ' · ' : '') + dados.length + (dados.length === 1 ? ' obra' : ' obras') + '</span>';
+  if ($('pAnt')) { $('pAnt').onclick = () => mudarPagina(-1); $('pProx').onclick = () => mudarPagina(1); }
+}
+
+function renderFonte() {
+  const el = $('fonte');
+  const quando = d => d ? p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) : null;
+  let h;
+  if (!S.leituraEm) { el.className = 'fonte espera'; el.innerHTML = '<span class="pt"></span>Aguardando a planilha…'; return; }
+  el.className = 'fonte' + (S.erros ? ' espera' : '');
+  h = '<span class="pt"></span>' + (S.modificadoEm ? 'Planilha salva em ' + quando(S.modificadoEm) : 'Planilha carregada') +
+    '<br>Conferida às ' + p2(S.leituraEm.getHours()) + ':' + p2(S.leituraEm.getMinutes()) + ':' + p2(S.leituraEm.getSeconds()) +
+    (S.modo === 'url' || S.modo === 'handle' ? ' · confere a cada ' + CFG.leituraSegundos + ' s' : ' · arquivo avulso (sem atualização automática)');
+  if (S.erros) h += '<br><span class="aviso-dados">Planilha indisponível agora (tentativa ' + S.erros + '); exibindo a última leitura.</span>';
+  else if (S.avisos.length) h += '<br><span class="aviso-dados" title="' + esc(S.avisos.join('\n')) + '">' + S.avisos.length + (S.avisos.length === 1 ? ' aviso' : ' avisos') + ' nos dados da planilha</span>';
+  el.innerHTML = h;
+}
+
+function render() {
+  S.registros.forEach(r => classificar(r, S.hoje));
+  const V = filtrados();
+  renderKpis(V); renderGantt(V); renderGraficos(V); renderTabela(V); renderFonte();
+}
+
+/* ---------- relógio, páginas, tela ---------- */
+const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+const MESES_L = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+function relogio() {
+  const d = new Date();
+  $('hora').textContent = p2(d.getHours()) + ':' + p2(d.getMinutes());
+  $('data').innerHTML = DIAS[d.getDay()] + ',<br>' + d.getDate() + ' de ' + MESES_L[d.getMonth()] + ' de ' + d.getFullYear();
+  const h = serialHoje();
+  if (h !== S.hoje) { S.hoje = h; if (S.registros.length) render(); }
+}
+let timerPag = null;
+function mudarPagina(delta) {
+  const total = Math.ceil(filtrados().length / Math.max(1, CFG.linhasPorPagina | 0)) || 1;
+  S.pagina = (S.pagina + delta + total) % total;
+  renderTabela(filtrados());
+  clearInterval(timerPag); timerPag = setInterval(() => mudarPagina(1), CFG.trocaPaginaSegundos * 1000);
+}
+function ajustar() {
+  const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+  $('stage').style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+}
+function telaCheia() {
+  if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {});
+}
+let tIdle;
+function mexeu() { document.body.classList.remove('idle'); clearTimeout(tIdle); tIdle = setTimeout(() => document.body.classList.add('idle'), 6000); }
+
+/* ---------- carregamento da planilha ---------- */
+function resolverUrl(a) {
+  a = String(a).trim();
+  if (/^[A-Za-z]:[\\/]/.test(a)) return encodeURI('file:///' + a.replace(/\\/g, '/'));
+  if (/^(file|https?):/i.test(a)) return encodeURI(decodeURI(a));
+  return new URL(encodeURI(a), location.href).href;
+}
+function lerUrl(url) {
+  return new Promise((ok, falha) => {
+    const x = new XMLHttpRequest();
+    x.open('GET', /^https?:/i.test(url) ? url + (url.includes('?') ? '&' : '?') + '_=' + Date.now() : url);
+    x.responseType = 'arraybuffer';
+    x.onload = () => (x.status === 200 || (x.status === 0 && x.response && x.response.byteLength)) ? ok({ buf: x.response, mod: x.getResponseHeader('Last-Modified') }) : falha(new Error('Não foi possível abrir o arquivo (código ' + x.status + ').'));
+    x.onerror = () => falha(new Error('O navegador bloqueou a leitura do arquivo ou ele não existe.'));
+    x.send();
+  });
+}
+function assinatura(buf) {
+  const u = new Uint8Array(buf); let h = 2166136261;
+  for (let i = 0; i < u.length; i++) { h ^= u[i]; h = Math.imul(h, 16777619); }
+  return u.length + ':' + (h >>> 0);
+}
+async function aplicar(buf, modificado) {
+  const out = await LeitorXlsx.ler(buf, CFG.aba);
+  const { regs, avisos } = interpretar(out.linhas);
+  S.registros = regs; S.avisos = avisos; S.hoje = serialHoje();
+  S.modificadoEm = modificado || out.modificadoEm || null;
+  S.leituraEm = new Date(); S.erros = 0; S.ultimoErro = '';
+  S.registros.forEach(r => classificar(r, S.hoje));
+  montarFiltros(); render();
+  $('aviso').classList.remove('on');
+}
+async function ciclo() {
+  if (S.lendo || !S.modo || S.modo === 'avulso') return;
+  S.lendo = true;
+  try {
+    let buf, mod = null;
+    if (S.modo === 'handle') {
+      const f = await S.handle.getFile(), chave = f.lastModified + ':' + f.size;
+      if (chave === S.chave) { S.leituraEm = new Date(); S.erros = 0; renderFonte(); return; }
+      buf = await f.arrayBuffer(); S.chave = chave; mod = new Date(f.lastModified);
+    } else {
+      const r = await lerUrl(S.url), sig = assinatura(r.buf);
+      if (sig === S.sig) { S.leituraEm = new Date(); S.erros = 0; renderFonte(); return; }
+      buf = r.buf; mod = r.mod ? new Date(r.mod) : null; S.sig = sig;
+    }
+    try { await aplicar(buf, mod); } catch (e) { S.sig = null; S.chave = null; throw e; }
+  } catch (e) {
+    S.erros++; S.ultimoErro = e.message;
+    if (!S.registros.length) mostrarAviso(e.message); else renderFonte();
+  } finally { S.lendo = false; }
+}
+
+/* seleção manual (File System Access API: Edge/Chrome) */
+const BD = { abrir: () => new Promise((ok, no) => { const q = indexedDB.open('painel-obras', 1); q.onupgradeneeded = () => q.result.createObjectStore('k'); q.onsuccess = () => ok(q.result); q.onerror = () => no(q.error); }) };
+async function guardarHandle(h) { try { const db = await BD.abrir(); db.transaction('k', 'readwrite').objectStore('k').put(h, 'planilha'); } catch (e) {} }
+async function lerHandleGuardado() { try { const db = await BD.abrir(); return await new Promise(ok => { const q = db.transaction('k').objectStore('k').get('planilha'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); } catch (e) { return null; } }
+async function usarHandle(h) {
+  S.handle = h; S.modo = 'handle'; S.chave = null; S.sig = null; S.erros = 0;
+  await guardarHandle(h); await ciclo();
+}
+async function escolher() {
+  if (window.showOpenFilePicker) {
+    try {
+      const [h] = await showOpenFilePicker({ types: [{ description: 'Planilha Excel', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xlsm'] } }] });
+      await usarHandle(h);
+    } catch (e) { if (e.name !== 'AbortError') mostrarAviso(e.message); }
+  } else $('inputArquivo').click();
+}
+async function lerArquivoAvulso(f) {
+  try { S.modo = 'avulso'; await aplicar(await f.arrayBuffer(), new Date(f.lastModified)); }
+  catch (e) { mostrarAviso(e.message); }
+}
+function mostrarAviso(msg) {
+  $('avErro').textContent = msg || '';
+  $('aviso').classList.add('on');
+  lerHandleGuardado().then(h => { $('avReconectar').style.display = h ? '' : 'none'; $('avReconectar').onclick = async () => { try { if (await h.requestPermission({ mode: 'read' }) === 'granted') await usarHandle(h); } catch (e) { mostrarAviso(e.message); } }; });
+}
+
+async function iniciar() {
+  S.url = resolverUrl(CFG.arquivo);
+  try {
+    const r = await lerUrl(S.url);       // 1) arquivo configurado em config.js
+    S.modo = 'url'; S.sig = assinatura(r.buf);
+    await aplicar(r.buf, r.mod ? new Date(r.mod) : null);
+  } catch (e1) {
+    S.modo = null; let msg = e1.message;
+    const h = await lerHandleGuardado();   // 2) planilha escolhida anteriormente
+    if (h) { try { if (await h.queryPermission({ mode: 'read' }) === 'granted') { await usarHandle(h); if (S.registros.length) return; } } catch (e) {} }
+    mostrarAviso(msg + (/^file:/.test(S.url) && !/^file:/.test(location.href) ? '' : ''));
+  }
+}
+
+/* ---------- eventos ---------- */
+['fStatus', 'fSede', 'fPeriodo'].forEach((id, i) => $(id).addEventListener('change', e => {
+  S.filtro[['status', 'sede', 'periodo'][i]] = e.target.value; S.pagina = 0; render();
+}));
+$('bTela').onclick = telaCheia; $('bPlanilha').onclick = escolher; $('avEscolher').onclick = escolher;
+$('inputArquivo').onchange = e => { if (e.target.files[0]) lerArquivoAvulso(e.target.files[0]); e.target.value = ''; };
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT') return;
+  if (e.key === 'f' || e.key === 'F') telaCheia();
+  else if (e.key === 'o' || e.key === 'O') escolher();
+  else if (e.key === 'ArrowRight') mudarPagina(1);
+  else if (e.key === 'ArrowLeft') mudarPagina(-1);
+});
+['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, mexeu, { passive: true }));
+addEventListener('resize', ajustar);
+document.addEventListener('dragover', e => { e.preventDefault(); $('aviso').classList.add('on', 'arrasta'); });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) { $('aviso').classList.remove('arrasta'); if (S.registros.length) $('aviso').classList.remove('on'); } });
+document.addEventListener('drop', async e => {
+  e.preventDefault(); $('aviso').classList.remove('arrasta');
+  const it = e.dataTransfer.items && e.dataTransfer.items[0];
+  if (it && it.getAsFileSystemHandle) { try { const h = await it.getAsFileSystemHandle(); if (h && h.kind === 'file') return usarHandle(h); } catch (er) {} }
+  if (e.dataTransfer.files[0]) lerArquivoAvulso(e.dataTransfer.files[0]);
+});
+
+ajustar(); relogio(); mexeu();
+setInterval(relogio, 1000);
+setInterval(ciclo, Math.max(2, CFG.leituraSegundos) * 1000);
+timerPag = setInterval(() => mudarPagina(1), CFG.trocaPaginaSegundos * 1000);
+iniciar();
+</script>
+</body>
+</html>
